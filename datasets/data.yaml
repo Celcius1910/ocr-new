@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['ktp - v1 2024-12-09 1-45pm']
+
+roboflow:
+  workspace: firsttime-l6rxl
+  project: ktp-detection-jsdsx
+  version: 3
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/firsttime-l6rxl/ktp-detection-jsdsx/dataset/3
