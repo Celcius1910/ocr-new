@@ -49,6 +49,26 @@ coverage.xml
 *.py.cover
 .hypothesis/
 .pytest_cache/
+
+# Project specific ignores
+# Models and large binaries
+models/
+
+# Outputs and experiment runs
+outputs/
+runs/
+
+# Local datasets (optional samples)
+datasets/sample_ocr_ktp_axa/
+
+# IDE and environment
+.vscode/
+.venv/
+.venv_system/
+venv/
+.DS_Store
+Thumbs.db
+.pytest_cache/
 cover/
 
 # Translations
@@ -214,3 +234,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project outputs and local artifacts
+runs/
+donut-ktp-v3/runs/
+results*.json
+.venv_system/
