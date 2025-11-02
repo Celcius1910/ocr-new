@@ -1831,6 +1831,34 @@ python scripts\diagnostics\check_cuda.py
 python tools\diagnostics\show_headers.py outputs\results.json
 ```
 
+### Git Quick Commands
+
+```powershell
+# Fetch latest changes (no merge)
+git fetch origin
+
+# Pull latest main (fetch + merge)
+git pull origin main
+
+# Commit and push your changes
+git add .
+git commit -m "docs: update README quick commands"
+git push origin main
+
+# See recent history (last 5 commits)
+git log --oneline -5
+```
+
+Notes:
+
+- models/ and outputs/ are ignored by git. After a fresh clone/pull, make sure your model files exist under `models/` before running.
+- If needed, copy models from your backup location:
+
+   ```powershell
+   Copy-Item -Path "C:\afi-ocr-ktp-code\donut-ktp-v3" -Destination "models\" -Recurse -Force
+   Copy-Item -Path "C:\afi-ocr-ktp- code\best.pt" -Destination "models\" -Force
+   ```
+
 ### File Locations
 
 - **Models**: `models/best.pt` (YOLO), `models/donut-ktp-v3/` (Donut)
