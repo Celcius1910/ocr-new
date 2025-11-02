@@ -208,6 +208,114 @@ RuntimeError: CUDA out of memory
 2. Gunakan GPU dengan VRAM lebih besar (minimum 4GB)
 3. Fallback ke CPU mode: `--yolo-device cpu --donut-device cpu`
 
+## Git Operations
+
+### Updating Your Local Repository
+
+Untuk mendapatkan perubahan terbaru dari GitHub repository:
+
+```powershell
+# 1. Cek status repository lokal
+git status
+
+# 2. Fetch perubahan dari remote (tanpa merge)
+git fetch origin
+
+# 3. Pull perubahan dan merge ke branch lokal
+git pull origin main
+```
+
+**Perbedaan `fetch` vs `pull`**:
+
+- `git fetch origin`: Download perubahan dari remote, tapi **tidak** merge ke branch lokal. Aman untuk cek perubahan tanpa mengubah kode lokal.
+- `git pull origin main`: Download **dan** merge perubahan ke branch lokal. Equivalent dengan `git fetch` + `git merge`.
+
+### Committing and Pushing Changes
+
+Jika Anda melakukan perubahan pada kode dan ingin menyimpan ke repository:
+
+```powershell
+# 1. Cek file yang berubah
+git status
+
+# 2. Stage file yang ingin di-commit
+git add run_ocr.py                    # Satu file
+git add *.py                          # Semua file Python
+git add .                             # Semua file yang berubah
+
+# 3. Commit dengan pesan yang jelas
+git commit -m "fix: deskripsi perubahan yang dilakukan"
+
+# 4. Push ke GitHub
+git push origin main
+```
+
+**Best Practices untuk Commit Messages**:
+
+- `fix: ...` - Untuk bug fixes
+- `feat: ...` - Untuk fitur baru
+- `docs: ...` - Untuk perubahan dokumentasi
+- `chore: ...` - Untuk maintenance tasks (update dependencies, etc.)
+- `refactor: ...` - Untuk code refactoring tanpa perubahan fungsionalitas
+
+### Checking Commit History
+
+```powershell
+# Lihat 5 commit terakhir
+git log --oneline -5
+
+# Lihat detail commit tertentu
+git show <commit-hash>
+
+# Lihat perubahan yang belum di-commit
+git diff
+```
+
+### Handling Merge Conflicts
+
+Jika terjadi conflict saat `git pull`:
+
+```powershell
+# 1. Lihat file yang conflict
+git status
+
+# 2. Edit file yang conflict secara manual (remove conflict markers)
+#    Cari tanda <<<<<<<, =======, >>>>>>>
+
+# 3. Stage file yang sudah di-resolve
+git add <file-yang-conflict>
+
+# 4. Commit merge
+git commit -m "merge: resolve conflicts"
+
+# 5. Push hasil merge
+git push origin main
+```
+
+**Tips**: Gunakan VS Code untuk resolve conflicts. VS Code otomatis detect conflict dan menyediakan UI untuk memilih "Accept Current" / "Accept Incoming" / "Accept Both".
+
+### Important Notes
+
+⚠️ **File yang di-ignore oleh Git** (sesuai `.gitignore`):
+
+- `models/` folder - Model files terlalu besar (790MB+), tidak di-track oleh git
+- `outputs/` folder - Hasil OCR bersifat temporary
+- `.venv/`, `.venv_system/` - Virtual environment tidak perlu di-commit
+- `__pycache__/`, `*.pyc` - Python cache files
+
+💡 **Setup Model Files** setelah clone/pull:
+
+Karena `models/` folder tidak ada di git, Anda perlu copy manual:
+
+```powershell
+# Copy dari backup location atau old project
+Copy-Item -Path "C:\afi-ocr-ktp-code\donut-ktp-v3" -Destination "models\" -Recurse -Force
+Copy-Item -Path "C:\afi-ocr-ktp-code\best.pt" -Destination "models\" -Force
+
+# Verifikasi model files ada
+dir models\
+```
+
 ## Usage
 
 ### Quick Start Examples
