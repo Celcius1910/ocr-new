@@ -550,9 +550,9 @@ def main():
     print("Loading PaddleOCR for header detection...")
     paddle_ocr = None
     try:
-        paddle_ocr = PaddleOCR(
-            use_textline_orientation=True, lang="id", use_gpu=bool(args.paddle_use_gpu)
-        )
+        # PaddleOCR 3.3+ doesn't support use_gpu parameter anymore
+        # It automatically uses CPU by default
+        paddle_ocr = PaddleOCR(use_textline_orientation=True, lang="id")
         # Diagnostics: Paddle device
         try:
             import paddle
