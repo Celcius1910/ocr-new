@@ -1854,10 +1854,10 @@ Notes:
 - models/ and outputs/ are ignored by git. After a fresh clone/pull, make sure your model files exist under `models/` before running.
 - If needed, copy models from your backup location:
 
-   ```powershell
-   Copy-Item -Path "C:\afi-ocr-ktp-code\donut-ktp-v3" -Destination "models\" -Recurse -Force
-   Copy-Item -Path "C:\afi-ocr-ktp- code\best.pt" -Destination "models\" -Force
-   ```
+  ```powershell
+  Copy-Item -Path "C:\afi-ocr-ktp-code\donut-ktp-v3" -Destination "models\" -Recurse -Force
+  Copy-Item -Path "C:\afi-ocr-ktp- code\best.pt" -Destination "models\" -Force
+  ```
 
 ### File Locations
 
