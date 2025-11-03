@@ -51,8 +51,9 @@ coverage.xml
 .pytest_cache/
 
 # Project specific ignores
-# Models and large binaries
-models/
+# Models: tracked via Git LFS (see README). If you prefer to keep models local-only,
+# you may re-add `models/` to .gitignore. By default we allow committing via LFS.
+# models/
 
 # Outputs and experiment runs
 outputs/

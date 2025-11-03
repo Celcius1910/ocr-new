@@ -316,6 +316,49 @@ Copy-Item -Path "C:\afi-ocr-ktp-code\best.pt" -Destination "models\" -Force
 dir models\
 ```
 
+## Data: Wilayah Lookup (Kelurahan/Kecamatan)
+
+Sistem menggunakan dataset administrasi Indonesia (CSV) dan fuzzy matching untuk melengkapi `kel_desa`/`kecamatan` jika label tidak terbaca.
+
+- Modul: `wilayah_lookup.py`
+- Dataset: `wilayah_administrasi_indonesia/csv/` (delimiter `;`, UTF-8)
+- Integrasi: dieksekusi di `run_ocr.py` setelah `kota` berhasil dideteksi dari header OCR
+
+Cara update dataset CSV dan contoh penggunaan ada di dokumen: `docs/wilayah_lookup.md`.
+
+## Models & Git LFS
+
+Model besar (mis. `models/best.pt`, `models/donut-ktp-v3/model.safetensors`) sebaiknya ditrack dengan [Git LFS](https://git-lfs.com/) agar push/pull efisien.
+
+Langkah cepat (PowerShell):
+
+```powershell
+# 1) Pastikan Git LFS terpasang
+git lfs version
+git lfs install
+
+# 2) Track tipe file model (root repo)
+git lfs track "*.pt"
+git lfs track "*.safetensors"
+git lfs track "*.onnx"
+git lfs track "*.bin"
+
+# 3) Commit aturan LFS
+git add .gitattributes
+git commit -m "chore(lfs): track model files via Git LFS"
+git push
+
+# 4) Tambahkan/push model (opsional)
+git add models/best.pt models/donut-ktp-v3/model.safetensors
+git commit -m "feat(models): add weights via LFS"
+git push
+```
+
+Catatan:
+
+- `.gitignore` telah disesuaikan agar folder `models/` tidak diabaikan, sehingga file model dapat dipush via LFS.
+- Jika tidak ingin membagikan model di GitHub, biarkan file tetap lokal (abaikan langkah 4).
+
 ## Usage
 
 ### Quick Start Examples
