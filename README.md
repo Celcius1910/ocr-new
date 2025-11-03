@@ -359,6 +359,56 @@ Catatan:
 - `.gitignore` telah disesuaikan agar folder `models/` tidak diabaikan, sehingga file model dapat dipush via LFS.
 - Jika tidak ingin membagikan model di GitHub, biarkan file tetap lokal (abaikan langkah 4).
 
+## Quick Start (fresh clone) — models via Git LFS
+
+Langkah ringkas untuk clone repo, menarik model via Git LFS, dan langsung jalanin inference.
+
+```powershell
+# 1) Clone repo dan aktifkan Git LFS
+git lfs version
+git clone https://github.com/Celcius1910/ocr-new.git
+cd ocr-new
+git lfs install
+git lfs pull   # pastikan file model terunduh penuh, bukan pointer
+
+# 2) Verifikasi model weights ada dan size-nya > 0 (bukan pointer LFS)
+Get-Item models/best.pt | Select-Object Name,Length
+Get-Item models/donut-ktp-v3/model.safetensors | Select-Object Name,Length
+
+# 3) Buat & aktifkan virtual environment
+python -m venv .venv_system
+ .\.venv_system\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+# 4) (Opsional) Setup GPU
+# Cara cepat (recommended, otomatis menginstall PyTorch CUDA):
+.\install_gpu.ps1
+
+# 5) Jalankan OCR
+# a) Single image (ganti path ke file KTP Anda)
+python run_ocr.py --mode file --input path\to\ktp.jpg --output outputs\result.json
+
+# b) Folder (ganti path ke folder gambar Anda)
+python run_ocr.py --mode folder --input path\to\folder --output outputs\results.json
+
+# (Opsional) Gunakan GPU
+python run_ocr.py --mode folder --input path\to\folder --output outputs\results.json --yolo-device cuda --donut-device cuda
+```
+
+Ekspektasi log (contoh):
+
+```
+Using devices -> Donut: cuda, YOLO: cuda, Paddle GPU: False
+Torch CUDA available: True | torch.version.cuda: 12.1
+Donut model actual device: cuda:0
+```
+
+Troubleshooting cepat:
+
+- Jika ukuran `models/best.pt` atau `model.safetensors` sangat kecil (≤ 150 bytes), berarti masih pointer LFS → jalankan `git lfs pull`.
+- Jika import error PyTorch CUDA, jalankan `.\install_gpu.ps1` atau install PyTorch CUDA 12.1 secara manual.
+- Jika input folder tidak ada, ganti `--input` ke folder/file milik Anda.
+
 ## Usage
 
 ### Quick Start Examples
