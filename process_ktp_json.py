@@ -235,11 +235,63 @@ def parse_ktp_text(text):
                 break
 
     # Address components - Position-based extraction
-    # More tolerant RT/RW pattern (allows extra spaces)
-    rt_rw_pattern = r"\b(?:RT|RW|RT/RW)?\s*:?\s*(\d{3}|\d{2})\s*[/\-]\s*(\d{3}|\d{2})\b"
-    rt_rw_match = re.search(rt_rw_pattern, text_single, re.IGNORECASE)
+    # RT/RW pattern: Search AFTER birth date to avoid matching date as RT/RW
+    # Strategy: Prefer explicit RT/RW keywords or 3-digit format, skip all date patterns
+
+    # If birth date found, search AFTER it; otherwise search from NIK position
+    search_start_pos = 0
+    if fields["tanggal_lahir"]:
+        birth_date_pos = text_single.find(fields["tanggal_lahir"])
+        if birth_date_pos != -1:
+            # Skip past birth date (add extra buffer for full date format)
+            search_start_pos = birth_date_pos + len(fields["tanggal_lahir"]) + 5
+    elif fields["nik"]:
+        # If no birth date but have NIK, start after NIK
+        nik_pos = text_single.find(fields["nik"])
+        if nik_pos != -1:
+            search_start_pos = nik_pos + 16 + 10  # NIK + buffer
+
+    # Search for RT/RW in the safe region (after birth date)
+    text_after_birth = text_single[search_start_pos:]
+
+    # Priority 1: Explicit RT/RW keywords (most reliable)
+    rt_rw_explicit = (
+        r"\b(RT\s*[:/]?\s*RW|RT|RW)\s*[:/]?\s*(\d{2,3})\s*[/\-]\s*(\d{2,3})\b"
+    )
+    rt_rw_match = re.search(rt_rw_explicit, text_after_birth, re.IGNORECASE)
     if rt_rw_match:
-        fields["rt_rw"] = f"{rt_rw_match.group(1)}/{rt_rw_match.group(2)}"
+        fields["rt_rw"] = (
+            f"{rt_rw_match.group(2).zfill(3)}/{rt_rw_match.group(3).zfill(3)}"
+        )
+    else:
+        # Priority 2: 3-digit format with optional spaces (likely RT/RW, not date)
+        rt_rw_3digit = r"\b(\d{3})\s*[/\-]\s*(\d{3})\b"
+        rt_rw_match = re.search(rt_rw_3digit, text_after_birth)
+        if rt_rw_match:
+            fields["rt_rw"] = f"{rt_rw_match.group(1)}/{rt_rw_match.group(2)}"
+        else:
+            # Priority 3: Mixed or 2-digit BUT skip if it looks like a date (DD-MM-YYYY context)
+            # Find all digit pairs, skip dates (those followed by -YYYY or preceded by city names)
+            remaining_text = text_after_birth
+            while remaining_text:
+                rt_rw_2digit = r"\b(\d{2})\s*[/\-]\s*(\d{2})\b"
+                match = re.search(rt_rw_2digit, remaining_text)
+                if not match:
+                    break
+
+                # Check if this looks like a date (followed by -YYYY or -YY)
+                match_end = match.end()
+                look_ahead = remaining_text[match_end : match_end + 10]
+                if re.match(r"\s*[-/]\s*\d{4}", look_ahead) or re.match(
+                    r"\s*[-/]\s*\d{2}\b", look_ahead
+                ):
+                    # This is part of a date, skip it
+                    remaining_text = remaining_text[match_end:]
+                    continue
+
+                # Not a date, use it as RT/RW
+                fields["rt_rw"] = f"{match.group(1).zfill(3)}/{match.group(2).zfill(3)}"
+                break
 
     # NEW: Position-based alamat extraction (no hardcoded keywords)
     # Strategy: Extract text between RT/RW and kelurahan/kecamatan markers

@@ -1,3 +1,10 @@
+"""
+Diagnostic: summarize OCR results JSON (legacy filename)
+
+Note: Despite the name, this script is generic and does not use PaddleOCR.
+It summarizes header_ocr_text and provinsi/kota fields from results JSON.
+"""
+
 import json
 
 with open("results_latest.json", "r", encoding="utf-8") as f:

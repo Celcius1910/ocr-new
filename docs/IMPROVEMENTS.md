@@ -2,7 +2,7 @@
 
 ## Overview
 
-Sistem OCR KTP menggunakan YOLO untuk deteksi kartu, Donut untuk body text extraction, dan PaddleOCR khusus untuk header (Provinsi/Kota).
+Sistem OCR KTP menggunakan YOLO untuk deteksi kartu, Donut untuk body text extraction, dan EasyOCR khusus untuk header (Provinsi/Kota) dikombinasikan dengan fuzzy matching.
 
 ## Latest Improvements (November 2025)
 
@@ -22,11 +22,11 @@ Sistem OCR KTP menggunakan YOLO untuk deteksi kartu, Donut untuk body text extra
 
 ### 4. Header OCR & Parsing (NEW) ✅
 
-Mengatasi keterbatasan Donut dalam membaca header dengan menambahkan PaddleOCR untuk strip atas (≈30% tinggi crop) dan parsing yang lebih cerdas:
+Mengatasi keterbatasan Donut dalam membaca header dengan menambahkan EasyOCR pada full-card crop (memberi konteks lebih baik) dan parsing yang lebih cerdas (fuzzy matcher):
 
 - Normalisasi token: memisahkan kata yang menempel (KOTAMEDAN → KOTA MEDAN), perbaikan typo umum (PHUVINSI → PROVINSI, JAWA TIMUF → JAWA TIMUR, SUMATERA UTA → SUMATERA UTARA)
 - Regex dengan lookahead agar tidak over-capture (berhenti di NIK/NAMA/TEMPAT/TTL/KELAMIN/ALAMAT)
-- Canonical province mapping dengan fuzzy matching (SequenceMatcher ≥ 0.75) + alias umum
+- Canonical province mapping dengan fuzzy matching (RapidFuzz) + alias umum
 - Kota cleaner untuk buang noise di ekor (nama orang/huruf lepas) dan tetap menjaga kota dua kata yang valid (JAKARTA SELATAN, TANGERANG SELATAN, KEPULAUAN SERIBU)
 
 Hasil (dataset 19 gambar):
