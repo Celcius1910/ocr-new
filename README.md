@@ -334,13 +334,13 @@ Semua threshold dan knob terkait OCR/fuzzy sekarang terpusat di `config.py` agar
 
 - Lokasi: `config.py`
 - Utama yang bisa diubah:
-   - FIELD_THRESHOLDS: ambang minimal confidence per field (0.0–1.0)
-      - Contoh default: alamat=0.50, kel_desa=0.55, kecamatan=0.55, nik=0.90, rt_rw=0.80, dst.
-   - EASY_HEADER_MIN_CONF: 0.30 (min conf token EasyOCR untuk header PROVINSI/KOTA)
-   - EASY_BODY_MIN_CONF: 0.40 (min conf token EasyOCR untuk body fallback)
-   - HEADER_CROP_RATIO: 0.40 (rasio tinggi header dari crop YOLO)
-   - BODY_ROI_[X/Y]_*: ROI body fokus (biasanya area kel/ kec)
-   - FUZZY_WILAYAH_THRESHOLD: 0.70 (threshold fuzzy matching kelurahan/kecamatan)
+  - FIELD_THRESHOLDS: ambang minimal confidence per field (0.0–1.0)
+    - Contoh default: alamat=0.50, kel_desa=0.55, kecamatan=0.55, nik=0.90, rt_rw=0.80, dst.
+  - EASY_HEADER_MIN_CONF: 0.30 (min conf token EasyOCR untuk header PROVINSI/KOTA)
+  - EASY_BODY_MIN_CONF: 0.40 (min conf token EasyOCR untuk body fallback)
+  - HEADER_CROP_RATIO: 0.40 (rasio tinggi header dari crop YOLO)
+  - BODY*ROI*[X/Y]\_\*: ROI body fokus (biasanya area kel/ kec)
+  - FUZZY_WILAYAH_THRESHOLD: 0.70 (threshold fuzzy matching kelurahan/kecamatan)
 
 Catatan penting:
 

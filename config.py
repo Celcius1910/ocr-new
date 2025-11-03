@@ -26,10 +26,12 @@ FIELD_THRESHOLDS: dict[str, float] = {
 
 # EasyOCR thresholds
 EASY_HEADER_MIN_CONF: float = 0.30  # min conf for header tokens (PROVINSI/KOTA line)
-EASY_BODY_MIN_CONF: float = 0.40    # min conf for body tokens (kelurahan/kecamatan fallback)
+EASY_BODY_MIN_CONF: float = (
+    0.40  # min conf for body tokens (kelurahan/kecamatan fallback)
+)
 
 # Header crop configuration (relative to detected card crop)
-HEADER_CROP_RATIO: float = 0.40     # top portion height ratio for header OCR
+HEADER_CROP_RATIO: float = 0.40  # top portion height ratio for header OCR
 
 # Body ROI (lower-left) where kelurahan/kecamatan often appear (ratios of crop dims)
 BODY_ROI_Y_START: float = 0.40

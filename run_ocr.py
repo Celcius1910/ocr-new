@@ -411,7 +411,11 @@ def process_image(
                         except Exception:
                             EASY_BODY_MIN_CONF = 0.40
                         e_text = " ".join(
-                            [str(r[1]) for r in e_res_sorted if float(r[2]) >= EASY_BODY_MIN_CONF]
+                            [
+                                str(r[1])
+                                for r in e_res_sorted
+                                if float(r[2]) >= EASY_BODY_MIN_CONF
+                            ]
                         )
                         extra = parse_ktp_text(e_text)
                         if (not ktp_fields.get("kel_desa")) and extra.get("kel_desa"):
