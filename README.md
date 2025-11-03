@@ -2,6 +2,8 @@
 
 Production-ready OCR system for Indonesian KTP (Kartu Tanda Penduduk) with YOLO detection, Donut OCR for body text, and optional PaddleOCR for robust header parsing (Provinsi/Kota).
 
+> Quick links: [Start here → Quick Start (fresh clone)](#quick-start-fresh-clone--models-via-git-lfs) · [Installation](#installation) · [Usage](#usage) · [Models & Git LFS](#models--git-lfs) · [Wilayah Lookup](#data-wilayah-lookup-kelurahankecamatan)
+
 ## Features
 
 ✅ **Multi-mode operation**: File, Folder, Camera  
