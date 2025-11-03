@@ -422,6 +422,11 @@ def process_image(
                             ktp_fields["kel_desa"] = extra["kel_desa"]
                         if (not ktp_fields.get("kecamatan")) and extra.get("kecamatan"):
                             ktp_fields["kecamatan"] = extra["kecamatan"]
+                        # Also fill agama/pekerjaan if Donut missed them
+                        if (not ktp_fields.get("agama")) and extra.get("agama"):
+                            ktp_fields["agama"] = extra["agama"]
+                        if (not ktp_fields.get("pekerjaan")) and extra.get("pekerjaan"):
+                            ktp_fields["pekerjaan"] = extra["pekerjaan"]
                     # If still missing, try a focused ROI where KEL/KEC usually appear (lower-left)
                     if (not ktp_fields.get("kel_desa")) or (
                         not ktp_fields.get("kecamatan")
@@ -464,6 +469,13 @@ def process_image(
                                     "kecamatan"
                                 ):
                                     ktp_fields["kecamatan"] = extra2["kecamatan"]
+                                # Also fill agama/pekerjaan from ROI if still missing
+                                if (not ktp_fields.get("agama")) and extra2.get("agama"):
+                                    ktp_fields["agama"] = extra2["agama"]
+                                if (not ktp_fields.get("pekerjaan")) and extra2.get(
+                                    "pekerjaan"
+                                ):
+                                    ktp_fields["pekerjaan"] = extra2["pekerjaan"]
                 except Exception:
                     pass
 
