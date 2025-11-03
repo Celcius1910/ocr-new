@@ -3,7 +3,9 @@ from PIL import Image
 import torch
 from transformers import DonutProcessor, VisionEncoderDecoderModel
 from ultralytics import YOLO
-from paddleocr import PaddleOCR
+
+# PaddleOCR disabled due to conflict with PyTorch 2.5+
+# from paddleocr import PaddleOCR
 import difflib
 import json
 import time
@@ -23,20 +25,27 @@ DROIDCAM_URL = "http://192.168.1.3:4747/video"
 
 def normalize_ocr_text(text: str) -> str:
     t = text.upper()
-    # Common typos
+    # Common typos (PaddleOCR + EasyOCR)
     t = re.sub(r"\bPHUVINSI\b", "PROVINSI", t)
     t = re.sub(r"\bPRVINSI\b", "PROVINSI", t)
     t = re.sub(r"\bPROVNSI\b", "PROVINSI", t)
     t = re.sub(r"\bPROUINSI\b", "PROVINSI", t)
+    t = re.sub(r"\bPROVINS[:\s]", "PROVINSI ", t)  # PROVINS: → PROVINSI
+    t = re.sub(
+        r"\bPBOVINS[HI]", "PROVINSI", t
+    )  # PBOVINSHJAWABARAT → PROVINSI JAWABARAT
     t = re.sub(r"PHUVINSI", "PROVINSI", t)  # merged
     t = re.sub(r"PRVINSI", "PROVINSI", t)  # merged
+    t = re.sub(r"PBOVINS[HI]", "PROVINSI", t)  # merged EasyOCR typo
     t = re.sub(r"SUNATE", "SUMATE", t)
+    t = re.sub(r"SUNATER", "SUMATERA", t)
     # Split merged keywords
     t = re.sub(r"(KOTA)([A-Z])", r"\1 \2", t)
     t = re.sub(r"(KABUPATEN)([A-Z])", r"\1 \2", t)
     t = re.sub(r"(PROVINSI)([A-Z])", r"\1 \2", t)
     t = re.sub(r"(PROPINSI)([A-Z])", r"\1 \2", t)
     t = re.sub(r"(SUMATERA)([A-Z])", r"\1 \2", t)
+    t = re.sub(r"(JAWA)([A-Z])", r"\1 \2", t)  # JAWABARAT → JAWA BARAT
     return t
 
 
@@ -86,8 +95,9 @@ def canonical_province(name_candidate: str):
     return best if best_s >= 0.75 else None
 
 
-def extract_header_from_crop(crop: np.ndarray, paddle_ocr: PaddleOCR):
+def extract_header_from_crop(crop: np.ndarray, paddle_ocr=None, easyocr_reader=None):
     """Run OCR on top region and parse provinsi/kota.
+    Now primarily uses EasyOCR (PaddleOCR disabled due to PyTorch conflict).
     Returns: header_full_text, provinsi_text, kota_text
     """
     header_full_text = None
@@ -98,19 +108,35 @@ def extract_header_from_crop(crop: np.ndarray, paddle_ocr: PaddleOCR):
         return header_full_text, provinsi_text, kota_text
 
     h_total = crop.shape[0]
-    header_h = max(120, int(h_total * 0.30))
+    # Expand header area to be more tolerant (some crops miss top line)
+    header_h = max(120, int(h_total * 0.40))
     header_crop = crop[0:header_h, :]
     header_lines = []
-    try:
-        res = paddle_ocr.predict(header_crop)
-        if res and len(res) > 0 and isinstance(res[0], dict):
-            for text, score in zip(
-                res[0].get("rec_texts", []), res[0].get("rec_scores", [])
-            ):
-                if float(score) > 0.5:
+
+    # Use EasyOCR (primary method)
+    if easyocr_reader is not None:
+        try:
+            # EasyOCR returns list of (bbox, text, confidence)
+            results = easyocr_reader.readtext(header_crop)
+            for bbox, text, conf in results:
+                # Lower threshold to capture noisy 'PROVINSI' tokens
+                if float(conf) >= 0.30:
                     header_lines.append(normalize_ocr_text(text))
-    except Exception:
-        pass
+        except Exception:
+            pass
+
+    # PaddleOCR fallback (if somehow still available)
+    if not header_lines and paddle_ocr is not None:
+        try:
+            res = paddle_ocr.predict(header_crop)
+            if res and len(res) > 0 and isinstance(res[0], dict):
+                for text, score in zip(
+                    res[0].get("rec_texts", []), res[0].get("rec_scores", [])
+                ):
+                    if float(score) > 0.5:
+                        header_lines.append(normalize_ocr_text(text))
+        except Exception:
+            pass
 
     if not header_lines:
         return header_full_text, provinsi_text, kota_text
@@ -128,18 +154,89 @@ def extract_header_from_crop(crop: np.ndarray, paddle_ocr: PaddleOCR):
         canon = canonical_province(name)
         provinsi_text = f"PROVINSI {canon}" if canon else f"PROVINSI {name}"
 
+    # Fallback: detect province name even without 'PROVINSI' prefix
+    if provinsi_text is None:
+        provinces_list = [
+            "DKI JAKARTA",
+            "DAERAH ISTIMEWA YOGYAKARTA",
+            "JAWA BARAT",
+            "JAWA TENGAH",
+            "JAWA TIMUR",
+            "BANTEN",
+            "BALI",
+            "NUSA TENGGARA BARAT",
+            "NUSA TENGGARA TIMUR",
+            "ACEH",
+            "SUMATERA UTARA",
+            "SUMATERA BARAT",
+            "RIAU",
+            "KEPULAUAN RIAU",
+            "JAMBI",
+            "BENGKULU",
+            "SUMATERA SELATAN",
+            "LAMPUNG",
+            "KEPULAUAN BANGKA BELITUNG",
+            "KALIMANTAN BARAT",
+            "KALIMANTAN TENGAH",
+            "KALIMANTAN SELATAN",
+            "KALIMANTAN TIMUR",
+            "KALIMANTAN UTARA",
+            "SULAWESI UTARA",
+            "SULAWESI TENGAH",
+            "SULAWESI SELATAN",
+            "SULAWESI TENGGARA",
+            "GORONTALO",
+            "MALUKU",
+            "MALUKU UTARA",
+            "PAPUA",
+            "PAPUA BARAT",
+        ]
+        for p in provinces_list:
+            if p in up:
+                provinsi_text = f"PROVINSI {p}"
+                break
+
     m_k = re.search(
-        r"(KOTA|KABUPATEN)\s+([A-Z]+(?:\s+[A-Z]+){0,2})(?=\s+(PROVINSI|PROPINSI|NIK|NAMA|TEMPAT|TTL|LAHIR|JENIS|KELAMIN|ALAMAT)\b|$)",
+        r"(KOTA|KABUPATEN)\s+([A-Z]+(?:\s+[A-Z]+){0,2})(?=\s+(?:PROVINSI|PROPINSI|NIK|NAMA|TEMPAT|TTL|LAHIR|JENIS|KELAMIN|ALAMAT|[A-Z]{2,})\b|$)",
         up,
     )
     if m_k:
         kota_text = m_k.group(0).strip()
 
+    # Fallback: derive province from known city-to-province mapping
+    if provinsi_text is None and m_k:
+        city_name = m_k.group(2).strip()
+        city_to_province = {
+            # Java
+            "SURABAYA": "JAWA TIMUR",
+            "BEKASI": "JAWA BARAT",
+            "BANDUNG": "JAWA BARAT",
+            "JAKARTA": "DKI JAKARTA",
+            "TANGERANG": "BANTEN",
+            "TANGERANG SELATAN": "BANTEN",
+            # Sumatra
+            "MEDAN": "SUMATERA UTARA",
+            "PEKANBARU": "RIAU",
+            # Kalimantan/Sulawesi/Bali/NTT/NTB
+            "BATAM": "KEPULAUAN RIAU",
+            "DENPASAR": "BALI",
+        }
+        mapped = city_to_province.get(city_name)
+        if mapped:
+            provinsi_text = f"PROVINSI {mapped}"
+
     return header_full_text, provinsi_text, kota_text
 
 
 def process_image(
-    image_input, processor, model, yolo, device, paddle_ocr=None, enable_fallback=True
+    image_input,
+    processor,
+    model,
+    yolo,
+    device,
+    paddle_ocr=None,
+    easyocr_reader=None,
+    enable_fallback=True,
 ):
     """Process a single image (path or frame array) and return OCR results"""
     t0 = time.time()
@@ -208,14 +305,14 @@ def process_image(
         # Parse base fields
         ktp_fields = parse_ktp_text(decoded_text)
 
-        # Header OCR via PaddleOCR (single region parse)
+        # Header OCR via PaddleOCR or EasyOCR (single region parse)
         header_full_text = None
         provinsi_text = None
         kota_text = None
         full_paddle_text = None
-        if paddle_ocr is not None:
+        if paddle_ocr is not None or easyocr_reader is not None:
             header_full_text, provinsi_text, kota_text = extract_header_from_crop(
-                crop, paddle_ocr
+                crop, paddle_ocr, easyocr_reader
             )
 
             # PaddleOCR fallback for agama/pekerjaan (only if enabled)
@@ -283,6 +380,67 @@ def process_image(
                 except Exception:
                     pass
 
+            # EasyOCR fallback for Kelurahan/Kecamatan (when Donut misses)
+            if (
+                enable_fallback
+                and easyocr_reader is not None
+                and (
+                    (not ktp_fields.get("kel_desa"))
+                    or (not ktp_fields.get("kecamatan"))
+                )
+            ):
+                try:
+                    # Read full YOLO crop for body text using EasyOCR
+                    e_res = easyocr_reader.readtext(crop)
+                    if e_res:
+                        # Sort by vertical position to preserve order
+                        e_res_sorted = sorted(
+                            e_res, key=lambda r: (min(pt[1] for pt in r[0]))
+                        )
+                        # Concatenate with a space; keep moderate threshold to reduce noise
+                        e_text = " ".join(
+                            [str(r[1]) for r in e_res_sorted if float(r[2]) >= 0.40]
+                        )
+                        extra = parse_ktp_text(e_text)
+                        if (not ktp_fields.get("kel_desa")) and extra.get("kel_desa"):
+                            ktp_fields["kel_desa"] = extra["kel_desa"]
+                        if (not ktp_fields.get("kecamatan")) and extra.get("kecamatan"):
+                            ktp_fields["kecamatan"] = extra["kecamatan"]
+                    # If still missing, try a focused ROI where KEL/KEC usually appear (lower-left)
+                    if (not ktp_fields.get("kel_desa")) or (
+                        not ktp_fields.get("kecamatan")
+                    ):
+                        ch, cw = crop.shape[:2]
+                        y1 = int(ch * 0.40)
+                        y2 = int(ch * 0.95)
+                        x1 = 0
+                        x2 = int(cw * 0.75)
+                        body_roi = crop[y1:y2, x1:x2]
+                        if body_roi.size > 0:
+                            r_res = easyocr_reader.readtext(body_roi)
+                            if r_res:
+                                r_res_sorted = sorted(
+                                    r_res, key=lambda r: (min(pt[1] for pt in r[0]))
+                                )
+                                r_text = " ".join(
+                                    [
+                                        str(r[1])
+                                        for r in r_res_sorted
+                                        if float(r[2]) >= 0.40
+                                    ]
+                                )
+                                extra2 = parse_ktp_text(r_text)
+                                if (not ktp_fields.get("kel_desa")) and extra2.get(
+                                    "kel_desa"
+                                ):
+                                    ktp_fields["kel_desa"] = extra2["kel_desa"]
+                                if (not ktp_fields.get("kecamatan")) and extra2.get(
+                                    "kecamatan"
+                                ):
+                                    ktp_fields["kecamatan"] = extra2["kecamatan"]
+                except Exception:
+                    pass
+
         # Merge header-derived fields when base is missing
         merged_sources = {}
         if provinsi_text:
@@ -295,6 +453,34 @@ def process_image(
             if (not ktp_fields.get("kota")) and kota_fields.get("kota"):
                 ktp_fields["kota"] = kota_fields["kota"]
                 merged_sources["kota"] = "header_ocr"
+
+        # Last-resort: Fuzzy match kelurahan/kecamatan dari CSV dataset
+        if (
+            not ktp_fields.get("kel_desa") or not ktp_fields.get("kecamatan")
+        ) and ktp_fields.get("kota"):
+            try:
+                from wilayah_lookup import fuzzy_match_kelurahan, fuzzy_match_kecamatan
+
+                kota_name = ktp_fields["kota"]
+                search_text = ktp_fields.get("alamat", decoded_text)
+
+                if not ktp_fields.get("kel_desa"):
+                    kel_match, kel_score = fuzzy_match_kelurahan(
+                        search_text, kota_name, threshold=0.70
+                    )
+                    if kel_match and kel_score >= 0.70:
+                        ktp_fields["kel_desa"] = kel_match
+                        merged_sources["kel_desa"] = "csv_fuzzy"
+
+                if not ktp_fields.get("kecamatan"):
+                    kec_match, kec_score = fuzzy_match_kecamatan(
+                        search_text, kota_name, threshold=0.70
+                    )
+                    if kec_match and kec_score >= 0.70:
+                        ktp_fields["kecamatan"] = kec_match
+                        merged_sources["kecamatan"] = "csv_fuzzy"
+            except Exception:
+                pass  # Fallback fails silently
 
         # Confidence and thresholds
         field_confidences = compute_field_confidence(ktp_fields)
@@ -310,8 +496,8 @@ def process_image(
                 alamat_threshold_value if "alamat_threshold_value" in globals() else 0.5
             ),
             "rt_rw": 0.80,
-            "kel_desa": 0.60,
-            "kecamatan": 0.60,
+            "kel_desa": 0.55,
+            "kecamatan": 0.55,
             "agama": 0.70,
             "status_perkawinan": 0.70,
             "pekerjaan": 0.70,
@@ -333,6 +519,31 @@ def process_image(
         processed_fields = _apply_thresholds(
             ktp_fields, field_confidences, default_thresholds
         )
+
+        # Last-chance fallback: infer province from final city if still missing
+        if (not processed_fields.get("provinsi")) and processed_fields.get("kota"):
+            city_name = str(processed_fields.get("kota", "")).upper().strip()
+            city_to_province = {
+                # Java
+                "SURABAYA": "JAWA TIMUR",
+                "BEKASI": "JAWA BARAT",
+                "BANDUNG": "JAWA BARAT",
+                "JAKARTA": "DKI JAKARTA",
+                "TANGERANG": "BANTEN",
+                "TANGERANG SELATAN": "BANTEN",
+                # Sumatra
+                "MEDAN": "SUMATERA UTARA",
+                "PEKANBARU": "RIAU",
+                # Kalimantan/Sulawesi/Bali/NTT/NTB
+                "BATAM": "KEPULAUAN RIAU",
+                "DENPASAR": "BALI",
+            }
+            mapped = city_to_province.get(city_name)
+            if mapped:
+                processed_fields["provinsi"] = mapped
+                merged_sources["provinsi"] = merged_sources.get(
+                    "provinsi", "city_mapping_fallback"
+                )
 
         # Metadata
         metadata = {
@@ -362,7 +573,14 @@ def process_image(
 
 
 def process_image_folder(
-    folder_path, processor, model, yolo, device, paddle_ocr=None, enable_fallback=True
+    folder_path,
+    processor,
+    model,
+    yolo,
+    device,
+    paddle_ocr=None,
+    easyocr_reader=None,
+    enable_fallback=True,
 ):
     results = []
     image_extensions = [".jpg", ".jpeg", ".png", ".bmp"]
@@ -377,7 +595,14 @@ def process_image_folder(
     for image_path in image_files:
         print(f"\nProcessing {os.path.basename(image_path)}...")
         result = process_image(
-            image_path, processor, model, yolo, device, paddle_ocr, enable_fallback
+            image_path,
+            processor,
+            model,
+            yolo,
+            device,
+            paddle_ocr,
+            easyocr_reader,
+            enable_fallback,
         )
         result["metadata"]["file_name"] = os.path.basename(image_path)
         results.append(result)
@@ -396,7 +621,9 @@ def process_image_folder(
     }
 
 
-def run_camera_mode(processor, model, yolo, device, paddle_ocr, enable_fallback=True):
+def run_camera_mode(
+    processor, model, yolo, device, paddle_ocr, easyocr_reader, enable_fallback=True
+):
     if CAMERA_INDEX is not None:
         cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
     else:
@@ -428,7 +655,14 @@ def run_camera_mode(processor, model, yolo, device, paddle_ocr, enable_fallback=
             print("\nCapturing frame and running detection/OCR...")
             t0 = time.time()
             last_response = process_image(
-                frame, processor, model, yolo, device, paddle_ocr, enable_fallback
+                frame,
+                processor,
+                model,
+                yolo,
+                device,
+                paddle_ocr,
+                easyocr_reader,
+                enable_fallback,
             )
             if last_response["status"] == "success":
                 last_response["metadata"][
@@ -547,29 +781,21 @@ def main():
     except Exception:
         pass
 
-    print("Loading PaddleOCR for header detection...")
-    paddle_ocr = None
-    try:
-        # PaddleOCR 3.3+ doesn't support use_gpu parameter anymore
-        # It automatically uses CPU by default
-        paddle_ocr = PaddleOCR(use_textline_orientation=True, lang="id")
-        # Diagnostics: Paddle device
-        try:
-            import paddle
+    print("Loading EasyOCR for header detection...")
+    easyocr_reader = None
+    paddle_ocr = None  # PaddleOCR disabled (conflict with PyTorch 2.5+)
 
-            dev = None
-            try:
-                dev = paddle.device.get_device()
-            except Exception:
-                pass
-            print("Paddle device:", dev)
-        except Exception:
-            pass
+    try:
+        import easyocr
+
+        easyocr_reader = easyocr.Reader(
+            ["id", "en"], gpu=False
+        )  # Use CPU for compatibility
+        print("✓ EasyOCR loaded successfully (CPU mode)")
     except Exception as e:
-        # PaddleOCR failed to load (import error, conflict, etc.)
-        print(f"⚠️  PaddleOCR unavailable (header OCR disabled): {type(e).__name__}")
-        print("   → PyTorch GPU will still work for Donut & YOLO")
-        paddle_ocr = None
+        print(f"⚠️  EasyOCR unavailable: {type(e).__name__}")
+        print("   → Header OCR disabled, provinsi/kota extraction will be limited")
+        easyocr_reader = None
 
     if args.mode == "camera":
         # In camera mode we pass the Donut (encoder-decoder) device onward
@@ -579,6 +805,7 @@ def main():
             yolo,
             donut_device,
             paddle_ocr,
+            easyocr_reader,
             enable_fallback=bool(args.enable_fallback),
         )
         return
@@ -600,6 +827,7 @@ def main():
             yolo,
             donut_device,
             paddle_ocr,
+            easyocr_reader,
             enable_fallback=bool(args.enable_fallback),
         )
         result["metadata"]["processing_time"] = f"{time.time() - t0:.2f}s"
@@ -612,6 +840,7 @@ def main():
             yolo,
             donut_device,
             paddle_ocr,
+            easyocr_reader,
             enable_fallback=bool(args.enable_fallback),
         )
 

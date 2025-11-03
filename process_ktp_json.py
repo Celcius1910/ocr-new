@@ -500,20 +500,61 @@ def parse_ktp_text(text):
         "CIMANGGIS",
     ]
 
-    # First look for explicit mentions with "KELURAHAN", "DESA", or "KECAMATAN"
+    # First look for explicit mentions with label variants using regex (line-level)
     for line in lines:
         line_upper = line.upper()
-        if "KELURAHAN" in line_upper or "DESA" in line_upper:
-            extracted = line_upper.replace("KELURAHAN", "").replace("DESA", "").strip()
-            # Clean up: remove common non-location words
-            extracted = re.sub(r"\b(RT|RW|BLOK|JL|JALAN|NO)\b.*", "", extracted).strip()
-            if extracted and len(extracted) > 3:
+        # KEL/ DESA variants: KELURAHAN, KEL, KEL., KEL/DESA, DESA, with optional ':' or '.'
+        m_kel = re.search(
+            r"\b(?:KEL(?:URAHAN)?(?:/DESA)?|DESA|KEL\.)\b\s*[:.]?\s+([A-Z][A-Z\s]{2,}?)(?=\s+(?:KEC|KECAMATAN|KEL|KELURAHAN|DESA|RT|RW|NIK|NAMA|TEMPAT|TTL|LAHIR|ALAMAT|KOTA|KABUPATEN|PROVINSI)\b|$)",
+            line_upper,
+        )
+        if m_kel and not fields["kel_desa"]:
+            extracted = m_kel.group(1).strip()
+            extracted = re.sub(
+                r"\b(RT|RW|BLOK|JL|JALAN|NO|SEK)\b.*", "", extracted
+            ).strip()
+            if extracted and len(extracted) > 2:
                 fields["kel_desa"] = extracted
-        elif "KECAMATAN" in line_upper:
-            extracted = line_upper.replace("KECAMATAN", "").strip()
-            extracted = re.sub(r"\b(RT|RW|BLOK|JL|JALAN|NO)\b.*", "", extracted).strip()
-            if extracted and len(extracted) > 3:
+        # KEC variants: KECAMATAN, KEC, KEC.
+        m_kec = re.search(
+            r"\b(?:KEC(?:AMATAN)?|KEC\.)\b\s*[:.]?\s+([A-Z][A-Z\s]{2,}?)(?=\s+(?:KEC|KECAMATAN|KEL|KELURAHAN|DESA|RT|RW|NIK|NAMA|TEMPAT|TTL|LAHIR|ALAMAT|KOTA|KABUPATEN|PROVINSI)\b|$)",
+            line_upper,
+        )
+        if m_kec and not fields["kecamatan"]:
+            extracted = m_kec.group(1).strip()
+            extracted = re.sub(
+                r"\b(RT|RW|BLOK|JL|JALAN|NO|SEK)\b.*", "", extracted
+            ).strip()
+            if extracted and len(extracted) > 2:
                 fields["kecamatan"] = extracted
+
+    # If still not found, search across full text for label variants (robust to line breaks)
+    if not fields["kel_desa"] or not fields["kecamatan"]:
+        full_up = text_single.upper()
+        if not fields["kel_desa"]:
+            m_kel = re.search(
+                r"\b(?:KEL(?:URAHAN)?(?:/DESA)?|DESA|KEL\.)\b\s*[:.]?\s+([A-Z][A-Z\s]{2,}?)(?=\s+(?:KEC|KECAMATAN|KEL|KELURAHAN|DESA|RT|RW|NIK|NAMA|TEMPAT|TTL|LAHIR|ALAMAT|KOTA|KABUPATEN|PROVINSI)\b|$)",
+                full_up,
+            )
+            if m_kel:
+                extracted = m_kel.group(1).strip()
+                extracted = re.sub(
+                    r"\b(RT|RW|BLOK|JL|JALAN|NO|SEK)\b.*", "", extracted
+                ).strip()
+                if extracted and len(extracted) > 2:
+                    fields["kel_desa"] = extracted
+        if not fields["kecamatan"]:
+            m_kec = re.search(
+                r"\b(?:KEC(?:AMATAN)?|KEC\.)\b\s*[:.]?\s+([A-Z][A-Z\s]{2,}?)(?=\s+(?:KEC|KECAMATAN|KEL|KELURAHAN|DESA|RT|RW|NIK|NAMA|TEMPAT|TTL|LAHIR|ALAMAT|KOTA|KABUPATEN|PROVINSI)\b|$)",
+                full_up,
+            )
+            if m_kec:
+                extracted = m_kec.group(1).strip()
+                extracted = re.sub(
+                    r"\b(RT|RW|BLOK|JL|JALAN|NO|SEK)\b.*", "", extracted
+                ).strip()
+                if extracted and len(extracted) > 2:
+                    fields["kecamatan"] = extracted
 
     # If not found with explicit keywords, try to match known kelurahan names
     if not fields["kel_desa"]:
@@ -1166,22 +1207,22 @@ def process_image(image_path, processor, model, yolo, device):
         # Compute confidences and default thresholds (simple baseline here)
         field_confidences = compute_field_confidence(ktp_fields)
         default_thresholds = {
-            "nik": 0.90,
-            "nama": 0.70,
-            "provinsi": 0.80,
-            "kota": 0.70,
-            "tempat_lahir": 0.60,
-            "tanggal_lahir": 0.70,
-            "jenis_kelamin": 0.80,
-            "alamat": 0.60,
-            "rt_rw": 0.80,
-            "kel_desa": 0.60,
-            "kecamatan": 0.60,
-            "agama": 0.70,
-            "status_perkawinan": 0.70,
-            "pekerjaan": 0.70,
-            "kewarganegaraan": 0.90,
-            "berlaku_hingga": 0.80,
+            "nik": 0.00,
+            "nama": 0.00,
+            "provinsi": 0.00,
+            "kota": 0.00,
+            "tempat_lahir": 0.00,
+            "tanggal_lahir": 0.00,
+            "jenis_kelamin": 0.00,
+            "alamat": 0.00,
+            "rt_rw": 0.00,
+            "kel_desa": 0.00,
+            "kecamatan": 0.00,
+            "agama": 0.00,
+            "status_perkawinan": 0.00,
+            "pekerjaan": 0.00,
+            "kewarganegaraan": 0.00,
+            "berlaku_hingga": 0.00,
         }
 
         def _apply_thresholds(fields: dict, conf: dict, thr: dict) -> dict:
