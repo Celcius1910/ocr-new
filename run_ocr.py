@@ -109,7 +109,11 @@ def extract_header_from_crop(crop: np.ndarray, paddle_ocr=None, easyocr_reader=N
 
     h_total = crop.shape[0]
     # Expand header area to be more tolerant (some crops miss top line)
-    header_h = max(120, int(h_total * 0.40))
+    try:
+        from config import HEADER_CROP_RATIO
+    except Exception:
+        HEADER_CROP_RATIO = 0.40
+    header_h = max(120, int(h_total * HEADER_CROP_RATIO))
     header_crop = crop[0:header_h, :]
     header_lines = []
 
@@ -120,7 +124,11 @@ def extract_header_from_crop(crop: np.ndarray, paddle_ocr=None, easyocr_reader=N
             results = easyocr_reader.readtext(header_crop)
             for bbox, text, conf in results:
                 # Lower threshold to capture noisy 'PROVINSI' tokens
-                if float(conf) >= 0.30:
+                try:
+                    from config import EASY_HEADER_MIN_CONF
+                except Exception:
+                    EASY_HEADER_MIN_CONF = 0.30
+                if float(conf) >= EASY_HEADER_MIN_CONF:
                     header_lines.append(normalize_ocr_text(text))
         except Exception:
             pass
@@ -398,8 +406,12 @@ def process_image(
                             e_res, key=lambda r: (min(pt[1] for pt in r[0]))
                         )
                         # Concatenate with a space; keep moderate threshold to reduce noise
+                        try:
+                            from config import EASY_BODY_MIN_CONF
+                        except Exception:
+                            EASY_BODY_MIN_CONF = 0.40
                         e_text = " ".join(
-                            [str(r[1]) for r in e_res_sorted if float(r[2]) >= 0.40]
+                            [str(r[1]) for r in e_res_sorted if float(r[2]) >= EASY_BODY_MIN_CONF]
                         )
                         extra = parse_ktp_text(e_text)
                         if (not ktp_fields.get("kel_desa")) and extra.get("kel_desa"):
@@ -411,10 +423,20 @@ def process_image(
                         not ktp_fields.get("kecamatan")
                     ):
                         ch, cw = crop.shape[:2]
-                        y1 = int(ch * 0.40)
-                        y2 = int(ch * 0.95)
-                        x1 = 0
-                        x2 = int(cw * 0.75)
+                        try:
+                            from config import (
+                                BODY_ROI_Y_START,
+                                BODY_ROI_Y_END,
+                                BODY_ROI_X_START,
+                                BODY_ROI_X_END,
+                            )
+                        except Exception:
+                            BODY_ROI_Y_START, BODY_ROI_Y_END = 0.40, 0.95
+                            BODY_ROI_X_START, BODY_ROI_X_END = 0.00, 0.75
+                        y1 = int(ch * BODY_ROI_Y_START)
+                        y2 = int(ch * BODY_ROI_Y_END)
+                        x1 = int(cw * BODY_ROI_X_START)
+                        x2 = int(cw * BODY_ROI_X_END)
                         body_roi = crop[y1:y2, x1:x2]
                         if body_roi.size > 0:
                             r_res = easyocr_reader.readtext(body_roi)
@@ -426,7 +448,7 @@ def process_image(
                                     [
                                         str(r[1])
                                         for r in r_res_sorted
-                                        if float(r[2]) >= 0.40
+                                        if float(r[2]) >= EASY_BODY_MIN_CONF
                                     ]
                                 )
                                 extra2 = parse_ktp_text(r_text)
@@ -464,19 +486,24 @@ def process_image(
                 kota_name = ktp_fields["kota"]
                 search_text = ktp_fields.get("alamat", decoded_text)
 
+                try:
+                    from config import FUZZY_WILAYAH_THRESHOLD
+                except Exception:
+                    FUZZY_WILAYAH_THRESHOLD = 0.70
+
                 if not ktp_fields.get("kel_desa"):
                     kel_match, kel_score = fuzzy_match_kelurahan(
-                        search_text, kota_name, threshold=0.70
+                        search_text, kota_name, threshold=FUZZY_WILAYAH_THRESHOLD
                     )
-                    if kel_match and kel_score >= 0.70:
+                    if kel_match and kel_score >= FUZZY_WILAYAH_THRESHOLD:
                         ktp_fields["kel_desa"] = kel_match
                         merged_sources["kel_desa"] = "csv_fuzzy"
 
                 if not ktp_fields.get("kecamatan"):
                     kec_match, kec_score = fuzzy_match_kecamatan(
-                        search_text, kota_name, threshold=0.70
+                        search_text, kota_name, threshold=FUZZY_WILAYAH_THRESHOLD
                     )
-                    if kec_match and kec_score >= 0.70:
+                    if kec_match and kec_score >= FUZZY_WILAYAH_THRESHOLD:
                         ktp_fields["kecamatan"] = kec_match
                         merged_sources["kecamatan"] = "csv_fuzzy"
             except Exception:
@@ -484,26 +511,32 @@ def process_image(
 
         # Confidence and thresholds
         field_confidences = compute_field_confidence(ktp_fields)
-        default_thresholds = {
-            "nik": 0.90,
-            "nama": 0.70,
-            "provinsi": 0.80,
-            "kota": 0.70,
-            "tempat_lahir": 0.60,
-            "tanggal_lahir": 0.70,
-            "jenis_kelamin": 0.80,
-            "alamat": (
-                alamat_threshold_value if "alamat_threshold_value" in globals() else 0.5
-            ),
-            "rt_rw": 0.80,
-            "kel_desa": 0.55,
-            "kecamatan": 0.55,
-            "agama": 0.70,
-            "status_perkawinan": 0.70,
-            "pekerjaan": 0.70,
-            "kewarganegaraan": 0.90,
-            "berlaku_hingga": 0.80,
-        }
+        try:
+            from config import FIELD_THRESHOLDS as default_thresholds
+        except Exception:
+            default_thresholds = {
+                "nik": 0.90,
+                "nama": 0.70,
+                "provinsi": 0.80,
+                "kota": 0.70,
+                "tempat_lahir": 0.60,
+                "tanggal_lahir": 0.70,
+                "jenis_kelamin": 0.80,
+                "alamat": 0.50,
+                "rt_rw": 0.80,
+                "kel_desa": 0.55,
+                "kecamatan": 0.55,
+                "agama": 0.70,
+                "status_perkawinan": 0.70,
+                "pekerjaan": 0.70,
+                "kewarganegaraan": 0.90,
+                "berlaku_hingga": 0.80,
+            }
+
+        # Preserve CLI override if present
+        if "alamat_threshold_value" in globals():
+            default_thresholds = dict(default_thresholds)
+            default_thresholds["alamat"] = alamat_threshold_value
 
         def _apply_thresholds(fields: dict, conf: dict, thr: dict) -> dict:
             out = {}

@@ -1204,26 +1204,30 @@ def process_image(image_path, processor, model, yolo, device):
         # Parse into structured fields
         ktp_fields = parse_ktp_text(decoded_text)
 
-        # Compute confidences and default thresholds (simple baseline here)
+        # Compute confidences and default thresholds (centralized in config)
         field_confidences = compute_field_confidence(ktp_fields)
-        default_thresholds = {
-            "nik": 0.00,
-            "nama": 0.00,
-            "provinsi": 0.00,
-            "kota": 0.00,
-            "tempat_lahir": 0.00,
-            "tanggal_lahir": 0.00,
-            "jenis_kelamin": 0.00,
-            "alamat": 0.00,
-            "rt_rw": 0.00,
-            "kel_desa": 0.00,
-            "kecamatan": 0.00,
-            "agama": 0.00,
-            "status_perkawinan": 0.00,
-            "pekerjaan": 0.00,
-            "kewarganegaraan": 0.00,
-            "berlaku_hingga": 0.00,
-        }
+        try:
+            from config import FIELD_THRESHOLDS as default_thresholds
+        except Exception:
+            # Fallback defaults if config is not available
+            default_thresholds = {
+                "nik": 0.90,
+                "nama": 0.70,
+                "provinsi": 0.80,
+                "kota": 0.70,
+                "tempat_lahir": 0.60,
+                "tanggal_lahir": 0.70,
+                "jenis_kelamin": 0.80,
+                "alamat": 0.50,
+                "rt_rw": 0.80,
+                "kel_desa": 0.55,
+                "kecamatan": 0.55,
+                "agama": 0.70,
+                "status_perkawinan": 0.70,
+                "pekerjaan": 0.70,
+                "kewarganegaraan": 0.90,
+                "berlaku_hingga": 0.80,
+            }
 
         def _apply_thresholds(fields: dict, conf: dict, thr: dict) -> dict:
             out = {}
