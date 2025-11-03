@@ -241,3 +241,4 @@ runs/
 donut-ktp-v3/runs/
 results*.json
 .venv_system/
+models/**/runs/
