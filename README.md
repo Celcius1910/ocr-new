@@ -516,8 +516,8 @@ FIELD_CONFIDENCE_THRESHOLDS = {
     "kota": 0.7,
     "alamat": 0.6,       # Lebih lenient untuk free-text
     "rt_rw": 0.7,
-    "kel_desa": 0.6,
-    "kecamatan": 0.6,
+   "kel_desa": 0.55,
+   "kecamatan": 0.55,
     "agama": 0.8,
     "pekerjaan": 0.7,
     "status_perkawinan": 0.7,
@@ -738,7 +738,7 @@ Fields dengan confidence di bawah threshold akan return `null`:
 
 - `nik`: 0.9 (sangat strict)
 - `nama`, `provinsi`: 0.7-0.8
-- `alamat`, `kel_desa`, `kecamatan`: 0.6 (lebih lenient untuk free-text)
+- `alamat`: 0.5, `kel_desa` & `kecamatan`: 0.55 (lebih lenient untuk free-text)
 
 ## Supported Modes
 
@@ -827,8 +827,8 @@ FIELD_CONFIDENCE_THRESHOLDS = {
     "jenis_kelamin": 0.9,     # High confidence untuk enum
     "alamat": 0.6,            # Lenient untuk free-text
     "rt_rw": 0.7,
-    "kel_desa": 0.6,
-    "kecamatan": 0.6,
+   "kel_desa": 0.55,
+   "kecamatan": 0.55,
     "agama": 0.8,
     "status_perkawinan": 0.7,
     "pekerjaan": 0.7,
