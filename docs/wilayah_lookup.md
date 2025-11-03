@@ -20,6 +20,7 @@ This module provides robust kelurahan/kecamatan extraction using a complete Indo
 5. Return best match per entity (kelurahan, kecamatan)
 
 Integration point:
+
 - Triggered in `run_ocr.py` AFTER kota is populated from header OCR
 - Only runs when `kel_desa` or `kecamatan` are still missing
 
@@ -44,6 +45,7 @@ print(kel, ks, kec, cs)
 4. No code changes required; the module lazy-loads and caches the dataset
 
 Validation tip (optional):
+
 ```powershell
 # Quick sanity check for first rows
 Get-Content wilayah_administrasi_indonesia/csv/provinces.csv -Head 5
@@ -57,6 +59,13 @@ Get-Content wilayah_administrasi_indonesia/csv/villages.csv -Head 5
 - Default threshold: 0.70 (tuned for OCR noise). Increase to reduce false positives.
 - For ambiguous kota names (e.g., TANGERANG), regency filter uses word-level intersection.
 - Performance: CSVs are loaded once and cached in memory; subsequent calls are fast.
+
+### Configuration via `config.py`
+
+- Pipeline utama (`run_ocr.py`) mengambil nilai threshold fuzzy dari `config.py`:
+  - `FUZZY_WILAYAH_THRESHOLD` (default 0.70)
+- Walau fungsi `fuzzy_match_*` memiliki parameter `threshold` (default internal 0.75), call-site di `run_ocr.py` selalu mengirim nilai dari `config.py` agar konsisten.
+- Untuk tuning global, ubah angka di `config.py` lalu jalankan ulang pipeline.
 
 ## Troubleshooting
 

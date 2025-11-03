@@ -328,6 +328,32 @@ Sistem menggunakan dataset administrasi Indonesia (CSV) dan fuzzy matching untuk
 
 Cara update dataset CSV dan contoh penggunaan ada di dokumen: `docs/wilayah_lookup.md`.
 
+## Config: Thresholds & OCR/Fuzzy Settings
+
+Semua threshold dan knob terkait OCR/fuzzy sekarang terpusat di `config.py` agar mudah di-tune tanpa mengubah banyak file.
+
+- Lokasi: `config.py`
+- Utama yang bisa diubah:
+   - FIELD_THRESHOLDS: ambang minimal confidence per field (0.0–1.0)
+      - Contoh default: alamat=0.50, kel_desa=0.55, kecamatan=0.55, nik=0.90, rt_rw=0.80, dst.
+   - EASY_HEADER_MIN_CONF: 0.30 (min conf token EasyOCR untuk header PROVINSI/KOTA)
+   - EASY_BODY_MIN_CONF: 0.40 (min conf token EasyOCR untuk body fallback)
+   - HEADER_CROP_RATIO: 0.40 (rasio tinggi header dari crop YOLO)
+   - BODY_ROI_[X/Y]_*: ROI body fokus (biasanya area kel/ kec)
+   - FUZZY_WILAYAH_THRESHOLD: 0.70 (threshold fuzzy matching kelurahan/kecamatan)
+
+Catatan penting:
+
+- `run_ocr.py` dan `process_ktp_json.py` otomatis mengambil nilai dari `config.py`.
+- `run_ocr.py` tetap menghormati CLI override untuk alamat (opsional) bila digunakan.
+- Ubah angka di `config.py`, simpan, lalu jalankan ulang perintah untuk mencoba tuning baru.
+
+Contoh tweak cepat:
+
+- Naikkan ketatnya kelurahan/kecamatan: set `kel_desa=0.60` dan `kecamatan=0.60` di `FIELD_THRESHOLDS`.
+- Perketat fuzzy: set `FUZZY_WILAYAH_THRESHOLD=0.75` untuk mengurangi false positive.
+- Longgarkan EasyOCR body: turunkan `EASY_BODY_MIN_CONF` ke `0.35` jika teks body sering putus.
+
 ## Models & Git LFS
 
 Model besar (mis. `models/best.pt`, `models/donut-ktp-v3/model.safetensors`) sebaiknya ditrack dengan [Git LFS](https://git-lfs.com/) agar push/pull efisien.
